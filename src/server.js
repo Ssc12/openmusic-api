@@ -19,10 +19,16 @@ const AuthenticationsService = require('./services/postgres/AuthenticationsServi
 const TokenManager = require('./tokenize/TokenManager');
 const AuthenticationsValidator = require('./validator/authentications');
 
+// playlist
+const playlists = require('./api/playlists');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
+const PlaylistsValidator = require('./validator/playlists');
+
 const init = async () => {
   const songService = new SongsService();
   const usersService = new UsersService();
   const authenticationsService = new AuthenticationsService();
+  const playlistsService = new PlaylistsService();
 
   const server = Hapi.server({
     port: process.env.PORT,
@@ -80,6 +86,13 @@ const init = async () => {
         validator: AuthenticationsValidator,
       },
     },
+    {
+      plugin: playlists,
+      options: {
+        service: playlistsService,
+        validator: PlaylistsValidator,
+      },
+    },
   ]);
 
   server.ext('onPreResponse', (request, h) => {
@@ -96,11 +109,21 @@ const init = async () => {
       return newResponse;
     }
 
-    // server error
+    // instance of error
     if (response instanceof Error) {
+       const { statusCode } = response.output;
+      if (statusCode === 401) {
+        const newResponse = h.response({
+          status: 'fail',
+          message: 'Unauthorize user, missing authentication',
+        });
+        newResponse.code(401);
+        return newResponse;
+      }
+
       const newResponse = h.response({
         status: 'error',
-        message: 'Maaf, terjadi kegagalan pada server internal kami.',
+        message: 'Maaf, terjadi kegagalan pada server internal kami',
       });
       newResponse.code(500);
       return newResponse;

@@ -42,6 +42,7 @@ class UsersService {
     }
   }
 
+  // get user belum kepakai
   async getUserById(userId) {
     const query = {
       text: 'SELECT id, username, fullname FROM users WHERE id = $1',
