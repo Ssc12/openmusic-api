@@ -5,8 +5,9 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class PlaylistsService {
-  constructor() {
+  constructor(collaborationService) {
     this._pool = new Pool();
+    this._collaborationService = collaborationService;
   }
 
   async addPlaylist({ name, owner }) {
@@ -29,15 +30,12 @@ class PlaylistsService {
   async getPlaylistByUserId(id) {
     const query = {
       text: `SELECT pl.id,pl.name,users.username FROM playlists pl
-      JOIN users ON pl.owner = users.id
-      WHERE users.id = $1`,
+      LEFT JOIN users ON pl.owner = users.id
+      LEFT JOIN collaborations colab ON colab.playlist_id = pl.id
+      WHERE pl.owner = $1 OR colab.user_id = $1`,
       values: [id],
     };
     const result = await this._pool.query(query);
-
-    if (!result.rowCount) {
-      throw new NotFoundError('Playlist tidak ditemukan');
-    }
 
     return result.rows;
   }
@@ -127,6 +125,22 @@ class PlaylistsService {
 
     if (!result.rowCount) {
       throw new NotFoundError('Lagu gagal dihapus dari Playlist. Id tidak ditemukan');
+    }
+  }
+
+  // collaboration verification
+  async verifyPlaylistAccess(playlistId, userId) {
+    try {
+      await this.verifyPlaylistOwner(playlistId, userId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      try {
+        await this._collaborationService.verifyCollaborator(playlistId, userId);
+      } catch {
+        throw error;
+      }
     }
   }
 }

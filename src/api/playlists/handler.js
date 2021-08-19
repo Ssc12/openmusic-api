@@ -1,5 +1,3 @@
-// const PlaylistSongValidator = require('../../validator/playlistsongs');
-
 class PlaylistHandler {
     constructor(service, PlaylistsValidator, PlaylistSongValidator) {
       this._service = service;
@@ -38,6 +36,7 @@ class PlaylistHandler {
 
     async getPlaylistsHandler(request, respn) {
         const { id: credentialId } = request.auth.credentials;
+
         const playlists = await this._service.getPlaylistByUserId(credentialId);
 
         const response = respn.response({
@@ -69,7 +68,6 @@ class PlaylistHandler {
         }
     }
 
-    // baru authorization owner (belum collaborator)
     async postSongToPlaylistHandler(request, respn) {
       try {
         this._PlaylistSongValidator.validatePlaylistSongPayload(request.payload);
@@ -77,7 +75,7 @@ class PlaylistHandler {
         await this._service.verifySongById(songId);
         const { id: credentialId } = request.auth.credentials;
         const { playlistId } = request.params;
-        await this._service.verifyPlaylistOwner(playlistId, credentialId);
+        await this._service.verifyPlaylistAccess(playlistId, credentialId);
 
         await this._service.addSongToPlaylist({ playlistId, songId });
 
@@ -95,7 +93,8 @@ class PlaylistHandler {
     async getSongsFromPlaylistHandler(request, respn) {
         const { id: credentialId } = request.auth.credentials;
         const { playlistId } = request.params;
-        await this._service.verifyPlaylistOwner(playlistId, credentialId);
+
+        await this._service.verifyPlaylistAccess(playlistId, credentialId);
 
         const songs = await this._service.getSongsFromPlaylist(playlistId);
 
@@ -116,7 +115,7 @@ class PlaylistHandler {
         await this._service.verifySongById(songId);
         const { id: credentialId } = request.auth.credentials;
         const { playlistId } = request.params;
-        await this._service.verifyPlaylistOwner(playlistId, credentialId);
+        await this._service.verifyPlaylistAccess(playlistId, credentialId);
 
         await this._service.deleteSongFromPlaylistBySongId({ playlistId, songId });
 
