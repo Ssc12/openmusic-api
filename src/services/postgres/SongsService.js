@@ -33,6 +33,7 @@ class SongsService {
     return result.rows.map(mapDBToModel);
   }
 
+  // sepertinya tidak dipakai
   async getSongById(id) {
     const query = {
       text: 'SELECT * FROM songs WHERE id = $1',
