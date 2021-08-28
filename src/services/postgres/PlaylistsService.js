@@ -5,9 +5,10 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class PlaylistsService {
-  constructor(collaborationService) {
+  constructor(collaborationService, cacheService) {
     this._pool = new Pool();
     this._collaborationService = collaborationService;
+    this._cacheService = cacheService;
   }
 
   async addPlaylist({ name, owner }) {
@@ -85,6 +86,8 @@ class PlaylistsService {
     if (!result.rows[0].id) {
       throw new InvariantError('Lagu gagal ditambahkan ke playlist');
     }
+
+    await this._cacheService.delete(`playlistSongs:${playlistId}`);
   }
 
   async verifySongById(id) {
@@ -100,19 +103,26 @@ class PlaylistsService {
   }
 
   async getSongsFromPlaylist(playlistId) {
-    const query = {
-      text: `SELECT s.id,s.title,s.performer FROM songs s
-      JOIN playlistsongs pls ON s.id = pls.song_id
-      WHERE pls.playlist_id = $1`,
-      values: [playlistId],
-    };
-    const result = await this._pool.query(query);
+    try {
+      const result = await this._cacheService.get(`playlistSongs:${playlistId}`);
+      return JSON.parse(result);
+    } catch (error) {
+      const query = {
+        text: `SELECT s.id,s.title,s.performer FROM songs s
+        JOIN playlistsongs pls ON s.id = pls.song_id
+        WHERE pls.playlist_id = $1`,
+        values: [playlistId],
+      };
+      const result = await this._pool.query(query);
 
-    if (!result.rowCount) {
-      throw new NotFoundError('Playlist belum memiliki lagu');
+      if (!result.rowCount) {
+        throw new NotFoundError('Playlist belum memiliki lagu');
+      }
+
+      await this._cacheService.set(`playlistSongs:${playlistId}`, JSON.stringify(result.rows));
+
+      return result.rows;
     }
-
-    return result.rows;
   }
 
   async deleteSongFromPlaylistBySongId({ playlistId, songId }) {
@@ -126,6 +136,8 @@ class PlaylistsService {
     if (!result.rowCount) {
       throw new NotFoundError('Lagu gagal dihapus dari Playlist. Id tidak ditemukan');
     }
+
+    await this._cacheService.delete(`playlistSongs:${playlistId}`);
   }
 
   // collaboration verification
